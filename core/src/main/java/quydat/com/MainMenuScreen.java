@@ -96,7 +96,6 @@ public class MainMenuScreen implements Screen {
         return style;
     }
 
-    // Tái sử dụng hàm createCircleTexture từ code cũ của bạn
     private Texture createCircleTexture(int baseRadius, Color color) {
         float screenScale = Math.min(Gdx.graphics.getWidth() / VIRTUAL_WIDTH, Gdx.graphics.getHeight() / VIRTUAL_HEIGHT);
         int radius = (int)(baseRadius * screenScale * 1.5f);

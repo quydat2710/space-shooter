@@ -1,7 +1,6 @@
 package quydat.com;
 
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Batch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
@@ -15,18 +14,19 @@ public class SpaceShip extends Actor {
     private Array<laser> lasers;
     private float shootDelay = 0.2f;
     private float timeSinceLastShot = 0;
-    private Sound laserSound;
 
     public SpaceShip(float x, float y, Stage s) {
+
         try {
             texture = new Texture("spaceship.png");
             textureRegion = new TextureRegion(texture);
-            laserSound = Gdx.audio.newSound(Gdx.files.internal("laser.mp3"));
         } catch (Exception e) {
-            Gdx.app.error("SpaceShip", "Error loading resources: " + e.getMessage());
+            Gdx.app.error("SpaceShip", "Error loading texture: " + e.getMessage());
         }
+
         setPosition(x, y);
-        setSize(textureRegion.getRegionWidth(), textureRegion.getRegionHeight());
+//        setSize(textureRegion.getRegionWidth(), textureRegion.getRegionHeight());
+        setBounds(x, y, 90, 90);  // Kích thước
         setOrigin(getWidth() / 2, getHeight() / 2);
         lasers = new Array<>();
         s.addActor(this);
@@ -59,12 +59,35 @@ public class SpaceShip extends Actor {
         float newX = getX() + dx * delta;
         float newY = getY() + dy * delta;
 
-        if (newX < 0) newX = 0;
-        if (newX + getWidth() > Gdx.graphics.getWidth()) newX = Gdx.graphics.getWidth() - getWidth();
-        if (newY < 0) newY = 0;
-        if (newY + getHeight() > Gdx.graphics.getHeight()) newY = Gdx.graphics.getHeight() - getHeight();
+        // Lấy kích thước stage (world coordinates)
+        float worldWidth = getStage().getViewport().getWorldWidth();
+        float worldHeight = getStage().getViewport().getWorldHeight();
+
+        boolean hitBorder = false;
+
+        if (newX < 0) {
+            newX = 0;
+            hitBorder = true;
+        }
+        if (newX + getWidth() > worldWidth) {
+            newX = worldWidth - getWidth();
+            hitBorder = true;
+        }
+        if (newY < 0) {
+            newY = 0;
+            hitBorder = true;
+        }
+        if (newY + getHeight() > worldHeight) {
+            newY = worldHeight - getHeight();
+            hitBorder = true;
+        }
 
         setPosition(newX, newY);
+
+        // Sử dụng AudioManager thay vì âm thanh riêng
+        if (hitBorder) {
+            AudioManager.getInstance().playBorderSound();
+        }
     }
 
     public void shootLaser() {
@@ -74,12 +97,15 @@ public class SpaceShip extends Actor {
             laser laser = new laser(laserX, laserY, 0, getStage());
             lasers.add(laser);
             getStage().addActor(laser);
-            if (laserSound != null) {
-                laserSound.play();
-            }
+
+            // Sử dụng AudioManager để phát âm thanh
+            AudioManager.getInstance().playLaserSound();
+
             timeSinceLastShot = 0;
         }
     }
+
+
 
     public Array<laser> getLasers() {
         return lasers;
@@ -90,10 +116,7 @@ public class SpaceShip extends Actor {
             texture.dispose();
             texture = null;
         }
-        if (laserSound != null) {
-            laserSound.dispose();
-            laserSound = null;
-        }
         lasers.clear();
+        // Không cần dispose sound nữa vì AudioManager quản lý
     }
 }

@@ -11,19 +11,20 @@ import com.badlogic.gdx.scenes.scene2d.Stage;
 public class UFO extends Actor {
     private TextureRegion textureRegion;
     private Texture texture;
-    private float speed = 200f;
+    private float speed = 450f;
     private Sound explosionSound;
 
     public UFO(float x, float y, Stage stage) {
         try {
             texture = new Texture("ufo.png");
             textureRegion = new TextureRegion(texture);
-            explosionSound = Gdx.audio.newSound(Gdx.files.internal("explosion.mp3"));
+//            explosionSound = Gdx.audio.newSound(Gdx.files.internal("explosion.mp3"));
         } catch (Exception e) {
             Gdx.app.error("UFO", "Error loading resources: " + e.getMessage());
         }
         setPosition(x, y);
-        setSize(textureRegion.getRegionWidth(), textureRegion.getRegionHeight());
+//        setSize(textureRegion.getRegionWidth(), textureRegion.getRegionHeight());
+        setBounds(x, y, 80, 80);  // Kích thước
         setOrigin(getWidth() / 2, getHeight() / 2);
     }
 

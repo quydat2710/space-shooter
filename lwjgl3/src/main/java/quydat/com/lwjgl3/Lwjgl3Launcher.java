@@ -2,7 +2,7 @@ package quydat.com.lwjgl3;
 
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration;
-import quydat.com.Main;
+
 import quydat.com.MyGame;
 
 /** Launches the desktop (LWJGL3) application. */
