@@ -136,7 +136,7 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
             titleFont = new BitmapFont();
             titleFont.getData().setScale(4.5f * screenScale);  // Tăng từ 4.0f lên 4.5f
             smallFont = new BitmapFont();
-            smallFont.getData().setScale(1.4f * screenScale);  // Tăng từ 1.2f lên 1.4f
+            smallFont.getData().setScale(1.8f * screenScale);  // Tăng từ 1.2f lên 1.4f
             fontBatch = new SpriteBatch();
 
             // Khởi tạo hình nền
@@ -918,59 +918,156 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
         }
     }
 
-    private void showGameOverScreen() {
-        AudioManager.getInstance().playGameOverMusic();
-        AudioManager.getInstance().playGameOverSound();
-        gameOverStage = new Stage(new FitViewport(VIRTUAL_WIDTH, VIRTUAL_HEIGHT, new OrthographicCamera()));
-        gameOverTable = new Table();
-        gameOverTable.setFillParent(true);
-        com.badlogic.gdx.graphics.Pixmap bgPixmap = new com.badlogic.gdx.graphics.Pixmap(1, 1, com.badlogic.gdx.graphics.Pixmap.Format.RGBA8888);
-        bgPixmap.setColor(0, 0, 0, 0.7f);
-        bgPixmap.fill();
-        Texture bgTexture = new Texture(bgPixmap);
-        bgPixmap.dispose();
-        skin.add("game-over-bg", bgTexture);
-        gameOverTable.setBackground(skin.getDrawable("game-over-bg"));
-        com.badlogic.gdx.scenes.scene2d.ui.Label gameOverLabel = new com.badlogic.gdx.scenes.scene2d.ui.Label("GAME OVER",
-            new com.badlogic.gdx.scenes.scene2d.ui.Label.LabelStyle(titleFont, Color.RED));
-        gameOverTable.add(gameOverLabel).padBottom(40).row();
-        com.badlogic.gdx.scenes.scene2d.ui.Label scoreLabel = new com.badlogic.gdx.scenes.scene2d.ui.Label("Final Score: " + score,
-            new com.badlogic.gdx.scenes.scene2d.ui.Label.LabelStyle(font, Color.WHITE));
-        gameOverTable.add(scoreLabel).padBottom(30).row();
-        com.badlogic.gdx.scenes.scene2d.ui.Label creditsLabel = new com.badlogic.gdx.scenes.scene2d.ui.Label("Made by KMA",
-            new com.badlogic.gdx.scenes.scene2d.ui.Label.LabelStyle(font, Color.GRAY));
-        gameOverTable.add(creditsLabel).padBottom(50).row();
-        TextButton.TextButtonStyle buttonStyle = new TextButton.TextButtonStyle();
-        buttonStyle.up = skin.getDrawable("shoot_button");
-        buttonStyle.font = font;
-        buttonStyle.fontColor = Color.WHITE;
-        playAgainButton = new TextButton("PLAY AGAIN", buttonStyle);
-        playAgainButton.addListener(new ChangeListener() {
-            @Override
-            public void changed(ChangeEvent event, Actor actor) {
-                resetGame();
+
+        private void showGameOverScreen() {
+            AudioManager.getInstance().playGameOverMusic();
+            AudioManager.getInstance().playGameOverSound();
+            gameOverStage = new Stage(new FitViewport(VIRTUAL_WIDTH, VIRTUAL_HEIGHT, new OrthographicCamera()));
+            gameOverTable = new Table();
+            gameOverTable.setFillParent(true);
+            com.badlogic.gdx.graphics.Pixmap bgPixmap = new com.badlogic.gdx.graphics.Pixmap(1, 1, com.badlogic.gdx.graphics.Pixmap.Format.RGBA8888);
+            bgPixmap.setColor(0, 0, 0, 0.7f);
+            bgPixmap.fill();
+            Texture bgTexture = new Texture(bgPixmap);
+            bgPixmap.dispose();
+            skin.add("game-over-bg", bgTexture);
+            gameOverTable.setBackground(skin.getDrawable("game-over-bg"));
+            com.badlogic.gdx.scenes.scene2d.ui.Label gameOverLabel = new com.badlogic.gdx.scenes.scene2d.ui.Label("GAME OVER",
+                new com.badlogic.gdx.scenes.scene2d.ui.Label.LabelStyle(titleFont, Color.RED));
+            gameOverTable.add(gameOverLabel).padBottom(40).row();
+            com.badlogic.gdx.scenes.scene2d.ui.Label scoreLabel = new com.badlogic.gdx.scenes.scene2d.ui.Label("Final Score: " + score,
+                new com.badlogic.gdx.scenes.scene2d.ui.Label.LabelStyle(font, Color.WHITE));
+            gameOverTable.add(scoreLabel).padBottom(30).row();
+            com.badlogic.gdx.scenes.scene2d.ui.Label creditsLabel = new com.badlogic.gdx.scenes.scene2d.ui.Label("Made by KMA",
+                new com.badlogic.gdx.scenes.scene2d.ui.Label.LabelStyle(font, Color.GRAY));
+            gameOverTable.add(creditsLabel).padBottom(50).row();
+
+            // Load hoặc tạo textures cho các nút (hình vuông)
+            Texture playAgainTexture, homeTexture, shareTexture;
+            int buttonSize = 100; // Kích thước nút vuông
+            try {
+                playAgainTexture = new Texture(Gdx.files.internal("play_again_button.png"));
+            } catch (Exception e) {
+                playAgainTexture = createCircleTexture(buttonSize/2, new Color(0.2f, 0.8f, 0.2f, 0.9f)); // Xanh lá
             }
-        });
-        gameOverTable.add(playAgainButton).size(200, 80).padTop(30);
-        gameOverStage.addActor(gameOverTable);
-        com.badlogic.gdx.InputMultiplexer gameOverMultiplexer = new com.badlogic.gdx.InputMultiplexer();
-        gameOverMultiplexer.addProcessor(gameOverStage);
-        gameOverMultiplexer.addProcessor(new com.badlogic.gdx.InputAdapter() {
-            @Override
-            public boolean keyDown(int keycode) {
-                if (keycode == Input.Keys.ENTER || keycode == Input.Keys.SPACE) {
+            try {
+                homeTexture = new Texture(Gdx.files.internal("home_button.png"));
+            } catch (Exception e) {
+                homeTexture = createCircleTexture(buttonSize/2, new Color(0.2f, 0.5f, 1.0f, 0.9f)); // Xanh dương
+            }
+            try {
+                shareTexture = new Texture(Gdx.files.internal("share_button.png"));
+            } catch (Exception e) {
+                shareTexture = createCircleTexture(buttonSize/2, new Color(1.0f, 0.6f, 0.0f, 0.9f)); // Cam
+            }
+
+            skin.add("play_again_btn", playAgainTexture);
+            skin.add("home_btn", homeTexture);
+            skin.add("share_btn", shareTexture);
+
+            // Play Again button
+            TextButton.TextButtonStyle playAgainStyle = new TextButton.TextButtonStyle();
+            playAgainStyle.up = skin.getDrawable("play_again_btn");
+            playAgainStyle.font = smallFont;
+            playAgainStyle.fontColor = Color.WHITE;
+            playAgainButton = new TextButton("", playAgainStyle);
+            playAgainButton.addListener(new ChangeListener() {
+                @Override
+                public void changed(ChangeEvent event, Actor actor) {
                     resetGame();
-                    return true;
                 }
-                if (keycode == Input.Keys.ESCAPE) {
-                    Gdx.app.exit();
-                    return true;
+            });
+            gameOverTable.add(playAgainButton).size(buttonSize, buttonSize).padTop(30).row();
+
+            // Label cho Play Again
+            com.badlogic.gdx.scenes.scene2d.ui.Label playAgainLabel = new com.badlogic.gdx.scenes.scene2d.ui.Label("Play Again",
+                new com.badlogic.gdx.scenes.scene2d.ui.Label.LabelStyle(smallFont, Color.WHITE));
+            gameOverTable.add(playAgainLabel).padTop(10).row();
+
+            // Home button
+            TextButton.TextButtonStyle homeStyle = new TextButton.TextButtonStyle();
+            homeStyle.up = skin.getDrawable("home_btn");
+            homeStyle.font = smallFont;
+            homeStyle.fontColor = Color.WHITE;
+            TextButton homeButton = new TextButton("", homeStyle);
+            homeButton.addListener(new ChangeListener() {
+                @Override
+                public void changed(ChangeEvent event, Actor actor) {
+                    dispose();
+                    game.setScreen(new MainMenuScreen(game));
                 }
-                return false;
+            });
+            gameOverTable.add(homeButton).size(buttonSize, buttonSize).padTop(20).row();
+
+            // Label cho Home
+            com.badlogic.gdx.scenes.scene2d.ui.Label homeLabel = new com.badlogic.gdx.scenes.scene2d.ui.Label("Home",
+                new com.badlogic.gdx.scenes.scene2d.ui.Label.LabelStyle(smallFont, Color.WHITE));
+            gameOverTable.add(homeLabel).padTop(10).row();
+
+            // Share Score button
+            TextButton.TextButtonStyle shareStyle = new TextButton.TextButtonStyle();
+            shareStyle.up = skin.getDrawable("share_btn");
+            shareStyle.font = smallFont;
+            shareStyle.fontColor = Color.WHITE;
+            TextButton shareButton = new TextButton("", shareStyle);
+            shareButton.addListener(new ChangeListener() {
+                @Override
+                public void changed(ChangeEvent event, Actor actor) {
+                    shareScore();
+                }
+            });
+            gameOverTable.add(shareButton).size(buttonSize, buttonSize).padTop(20).row();
+
+            // Label cho Share
+            com.badlogic.gdx.scenes.scene2d.ui.Label shareLabel = new com.badlogic.gdx.scenes.scene2d.ui.Label("Share Score",
+                new com.badlogic.gdx.scenes.scene2d.ui.Label.LabelStyle(smallFont, Color.WHITE));
+            gameOverTable.add(shareLabel).padTop(10);
+
+            gameOverStage.addActor(gameOverTable);
+            com.badlogic.gdx.InputMultiplexer gameOverMultiplexer = new com.badlogic.gdx.InputMultiplexer();
+            gameOverMultiplexer.addProcessor(gameOverStage);
+            gameOverMultiplexer.addProcessor(new com.badlogic.gdx.InputAdapter() {
+                @Override
+                public boolean keyDown(int keycode) {
+                    if (keycode == Input.Keys.ENTER || keycode == Input.Keys.SPACE) {
+                        resetGame();
+                        return true;
+                    }
+                    if (keycode == Input.Keys.ESCAPE) {
+                        dispose();
+                        game.setScreen(new MainMenuScreen(game));
+                        return true;
+                    }
+                    return false;
+                }
+            });
+            Gdx.input.setInputProcessor(gameOverMultiplexer);
+        }
+
+        private Texture createRectangleTexture(int width, int height, Color color) {
+            com.badlogic.gdx.graphics.Pixmap pixmap = new com.badlogic.gdx.graphics.Pixmap(width, height, com.badlogic.gdx.graphics.Pixmap.Format.RGBA8888);
+            // Viền tối
+            pixmap.setColor(color.r * 0.5f, color.g * 0.5f, color.b * 0.5f, color.a);
+            pixmap.fill();
+            // Nền chính
+            pixmap.setColor(color);
+            pixmap.fillRectangle(4, 4, width - 8, height - 8);
+            Texture texture = new Texture(pixmap);
+            pixmap.dispose();
+            return texture;
+        }
+
+        private void shareScore() {
+            String shareText = "I scored " + score + " points in Space Shooter! Can you beat my score?";
+            Gdx.app.log("GameScreen", "Share score: " + shareText);
+            // Trên desktop: copy vào clipboard
+            if (Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Desktop) {
+                Gdx.app.getClipboard().setContents(shareText);
+                Gdx.app.log("GameScreen", "Score copied to clipboard!");
             }
-        });
-        Gdx.input.setInputProcessor(gameOverMultiplexer);
-    }
+            // Trên Android/iOS: có thể dùng Intent hoặc Native sharing
+            // Tạm thời log ra console
+        }
 
     private void resetGame() {
         gameOver = false;
