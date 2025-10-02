@@ -30,388 +30,391 @@ import quydat.com.Missile;
 import com.badlogic.gdx.math.Vector2;  // Cho homing
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 
-    public class GameScreen implements Screen {
-        private final MyGame game;
-        private Stage stage;
-        private OrthographicCamera camera;
-        private FitViewport viewport;
-        private SpaceShip spaceShip;
-        private Array<UFO> ufos;
-        private Array<Meteor> meteors;
-        private Array<Shield> shields;
-        private long lastUfoTime;
-        private long lastMeteorTime;
-        private long lastShieldTime;
-        private int score = 0;
-        private int shieldCount = 1; // Number of shield protections (max 3)
-        private BitmapFont font;
-        private BitmapFont titleFont;
-        private BitmapFont smallFont;
-        private SpriteBatch fontBatch;
-        private Texture backgroundTexture;
-        private Sprite backgroundSprite1;
-        private Sprite backgroundSprite2;
-        private float backgroundY1;
-        private float backgroundY2;
-        private float backgroundSpeed = 100f;
-        private Touchpad touchpad;
-        private TextButton shootButton;
-        private Skin skin;
-        private boolean uiLoaded = false;
-        private boolean gameOver = false;
-        private Stage gameOverStage;
-        private Table gameOverTable;
-        private TextButton playAgainButton;
-        private static final float VIRTUAL_WIDTH = 1920f;
-        private static final float VIRTUAL_HEIGHT = 1080f;
+public class GameScreen implements Screen {
+    private final MyGame game;
+    private Stage stage;
+    private OrthographicCamera camera;
+    private FitViewport viewport;
+    private SpaceShip spaceShip;
+    private Array<UFO> ufos;
+    private Array<Meteor> meteors;
+    private Array<Shield> shields;
+    private long lastUfoTime;
+    private long lastMeteorTime;
+    private long lastShieldTime;
+    private int score = 0;
+    private int shieldCount = 1; // Number of shield protections (max 3)
+    private BitmapFont font;
+    private BitmapFont titleFont;
+    private BitmapFont smallFont;
+    private SpriteBatch fontBatch;
+    private Texture backgroundTexture;
+    private Sprite backgroundSprite1;
+    private Sprite backgroundSprite2;
+    private float backgroundY1;
+    private float backgroundY2;
+    private float backgroundSpeed = 100f;
+    private Touchpad touchpad;
+    private TextButton shootButton;
+    private Skin skin;
+    private boolean uiLoaded = false;
+    private boolean gameOver = false;
+    private Stage gameOverStage;
+    private Table gameOverTable;
+    private TextButton playAgainButton;
+    private static final float VIRTUAL_WIDTH = 1920f;
+    private static final float VIRTUAL_HEIGHT = 1080f;
 
-        private Music backgroundMusic;
-        private Music gameOverMusic;
+    private Music backgroundMusic;
+    private Music gameOverMusic;
 
-        private TextButton soundButton;
-        private TextButton musicButton;
+    private TextButton soundButton;
+    private TextButton musicButton;
 
-        private Array<Bomb> bombs;
-        private Array<Missile> missiles;
-        private Array<Trap> traps;  // Mới: Danh sách traps
-        private long lastBombTime;
-        private long lastMissileTime;
-        private long lastTrapTime;
-        private static final long BOMB_COOLDOWN = 3000000000L;  // 3 giây
-        private static final long MISSILE_COOLDOWN = 2000000000L;  // 2 giây
-        private static final long TRAP_COOLDOWN = 5000000000L;  // 5 giây cho trap
+    private Array<Bomb> bombs;
+    private Array<Missile> missiles;
+    private Array<Trap> traps;  // Mới: Danh sách traps
+    private long lastBombTime;
+    private long lastMissileTime;
+    private long lastTrapTime;
+    private static final long BOMB_COOLDOWN = 3000000000L;  // 3 giây
+    private static final long MISSILE_COOLDOWN = 2000000000L;  // 2 giây
+    private static final long TRAP_COOLDOWN = 5000000000L;  // 5 giây cho trap
 
-        private TextButton shootBombButton;
-        private TextButton shootMissileButton;
-        private TextButton shootTrapButton;  // Mới: Nút cho trap
+    private TextButton shootBombButton;
+    private TextButton shootMissileButton;
+    private TextButton shootTrapButton;  // Mới: Nút cho trap
 
-        private ShapeRenderer shapeRenderer;
+    private ShapeRenderer shapeRenderer;
 
-        public GameScreen(MyGame game) {
-            this.game = game;
-            create();
+    private long startTime; // Thời gian bắt đầu game
+
+    public GameScreen(MyGame game) {
+        this.game = game;
+        this.startTime = TimeUtils.millis();
+        create();
+    }
+
+    private void create() {
+        camera = new OrthographicCamera();
+        viewport = new FitViewport(VIRTUAL_WIDTH, VIRTUAL_HEIGHT, camera);
+        stage = new Stage(viewport);
+        camera.position.set(VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2, 0);
+
+        bombs = new Array<>();
+        missiles = new Array<>();
+        traps = new Array<>();  // Mới: Khởi tạo traps
+        lastBombTime = TimeUtils.nanoTime();
+        lastMissileTime = TimeUtils.nanoTime();
+        lastTrapTime = TimeUtils.nanoTime();
+
+        // Tạo InputMultiplexer để xử lý cả keyboard và touch
+        com.badlogic.gdx.InputMultiplexer multiplexer = new com.badlogic.gdx.InputMultiplexer();
+        multiplexer.addProcessor(stage);
+        multiplexer.addProcessor(new com.badlogic.gdx.InputAdapter() {
+            @Override
+            public boolean keyDown(int keycode) {
+                return false;
+            }
+        });
+        Gdx.input.setInputProcessor(multiplexer);
+
+        // Khởi tạo phi thuyền
+        float shipSize = 64 * Math.min(Gdx.graphics.getWidth() / VIRTUAL_WIDTH, Gdx.graphics.getHeight() / VIRTUAL_HEIGHT);
+        spaceShip = new SpaceShip(VIRTUAL_WIDTH / 2 - shipSize/2, 150, stage);
+        stage.addActor(spaceShip);
+
+        // Khởi tạo danh sách UFO, thiên thạch và khiên
+        ufos = new Array<>();
+        meteors = new Array<>();
+        shields = new Array<>();
+        spawnUfo();
+        spawnMeteor();
+        spawnShield();
+
+        // Khởi tạo fonts (chỉnh scale lớn hơn)
+        font = new BitmapFont();
+        float screenScale = Math.min(Gdx.graphics.getWidth() / VIRTUAL_WIDTH, Gdx.graphics.getHeight() / VIRTUAL_HEIGHT);
+        font.getData().setScale(2.0f * screenScale);  // Tăng từ 1.8f lên 2.0f
+        titleFont = new BitmapFont();
+        titleFont.getData().setScale(4.5f * screenScale);  // Tăng từ 4.0f lên 4.5f
+        smallFont = new BitmapFont();
+        smallFont.getData().setScale(1.8f * screenScale);  // Tăng từ 1.2f lên 1.4f
+        fontBatch = new SpriteBatch();
+
+        // Khởi tạo hình nền
+        try {
+            backgroundTexture = new Texture(Gdx.files.internal("hinh-nen-vu-tru.jpg"));
+            backgroundSprite1 = new Sprite(backgroundTexture);
+            backgroundSprite2 = new Sprite(backgroundTexture);
+            backgroundSprite1.setSize(VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+            backgroundSprite2.setSize(VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+            backgroundY1 = 0;
+            backgroundY2 = VIRTUAL_HEIGHT;
+            backgroundSprite1.setPosition(0, backgroundY1);
+            backgroundSprite2.setPosition(0, backgroundY2);
+        } catch (Exception e) {
+            Gdx.app.error("Main", "Error loading background texture: " + e.getMessage());
         }
 
-        private void create() {
-            camera = new OrthographicCamera();
-            viewport = new FitViewport(VIRTUAL_WIDTH, VIRTUAL_HEIGHT, camera);
-            stage = new Stage(viewport);
-            camera.position.set(VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2, 0);
+        // Tạo UI Controls
+        createUIControls();
 
-            bombs = new Array<>();
-            missiles = new Array<>();
-            traps = new Array<>();  // Mới: Khởi tạo traps
-            lastBombTime = TimeUtils.nanoTime();
-            lastMissileTime = TimeUtils.nanoTime();
-            lastTrapTime = TimeUtils.nanoTime();
+        // Tạo và phát nhạc nền
+        AudioManager.getInstance().playBackgroundMusic();
 
-            // Tạo InputMultiplexer để xử lý cả keyboard và touch
-            com.badlogic.gdx.InputMultiplexer multiplexer = new com.badlogic.gdx.InputMultiplexer();
-            multiplexer.addProcessor(stage);
-            multiplexer.addProcessor(new com.badlogic.gdx.InputAdapter() {
+        // Khởi tạo ShapeRenderer
+        shapeRenderer = new ShapeRenderer();
+    }
+
+    private void createUIControls() {
+        skin = new Skin();
+        try {
+            Texture joystickBg, joystickKnob, shootBtn, bombBtn, missileBtn, trapBtn;
+            try {
+                joystickBg = new Texture(Gdx.files.internal("joystick_background.png"));
+            } catch (Exception e) {
+                joystickBg = createCircleTexture(80, new Color(0.3f, 0.3f, 0.3f, 0.8f));
+                Gdx.app.log("Main", "Created default joystick background");
+            }
+            try {
+                joystickKnob = new Texture(Gdx.files.internal("joystick_knob.png"));
+            } catch (Exception e) {
+                joystickKnob = createCircleTexture(35, new Color(0.8f, 0.8f, 0.8f, 0.9f));
+                Gdx.app.log("Main", "Created default joystick knob");
+            }
+            try {
+                shootBtn = new Texture(Gdx.files.internal("shoot_button.png"));
+            } catch (Exception e) {
+                shootBtn = createCircleTexture(60, new Color(1.0f, 0.2f, 0.2f, 0.9f));
+                Gdx.app.log("Main", "Created default shoot button");
+            }
+            try {
+                bombBtn = new Texture(Gdx.files.internal("bomb.png"));
+            } catch (Exception e) {
+                bombBtn = createCircleTexture(60, new Color(0.2f, 1.0f, 0.2f, 0.9f));  // Xanh lá
+            }
+            try {
+                missileBtn = new Texture(Gdx.files.internal("missile.png"));
+            } catch (Exception e) {
+                missileBtn = createCircleTexture(60, new Color(0.2f, 0.2f, 1.0f, 0.9f));  // Xanh dương
+            }
+            try {
+                trapBtn = new Texture(Gdx.files.internal("trap.png"));
+            } catch (Exception e) {
+                trapBtn = createCircleTexture(60, new Color(1.0f, 0.5f, 0.0f, 0.9f));  // Màu cam cho trap
+            }
+            skin.add("bomb_button", bombBtn);
+            skin.add("missile_button", missileBtn);
+            skin.add("trap_button", trapBtn);  // Mới: Thêm skin cho trap
+            skin.add("joystick_background", joystickBg);
+            skin.add("joystick_knob", joystickKnob);
+            skin.add("shoot_button", shootBtn);
+
+            float screenWidth = viewport.getWorldWidth();
+            float screenHeight = viewport.getWorldHeight();
+            float margin = screenWidth * 0.08f;
+
+            Touchpad.TouchpadStyle touchpadStyle = new Touchpad.TouchpadStyle();
+            touchpadStyle.background = skin.getDrawable("joystick_background");
+            touchpadStyle.knob = skin.getDrawable("joystick_knob");
+            touchpad = new Touchpad(15, touchpadStyle);
+            float joystickSize = Math.min(screenWidth, screenHeight) * 0.18f;
+            touchpad.setBounds(margin, margin, joystickSize, joystickSize);
+            stage.addActor(touchpad);
+
+            float buttonSize = joystickSize * 0.6f;  // Giảm kích thước nút nhỏ hơn (từ 0.85f xuống 0.6f)
+            float buttonSpacing = buttonSize * 0.05f;  // Giảm spacing nhỏ hơn
+
+            // Sắp xếp nút thành hình vuông 2x2 ở góc phải dưới
+            // Dưới trái: shoot, dưới phải: bomb
+            // Trên trái: missile, trên phải: trap
+
+            // Shoot button (dưới trái)
+            TextButton.TextButtonStyle buttonStyle = new TextButton.TextButtonStyle();
+            buttonStyle.up = skin.getDrawable("shoot_button");
+            buttonStyle.font = font;
+            shootButton = new TextButton("", buttonStyle);
+            shootButton.setBounds(screenWidth - margin - 2 * buttonSize - buttonSpacing, margin, buttonSize, buttonSize);
+            shootButton.addListener(new ChangeListener() {
                 @Override
-                public boolean keyDown(int keycode) {
-                    return false;
+                public void changed(ChangeEvent event, Actor actor) {
+                    spaceShip.shootLaser();
+                    Gdx.app.log("Main", "Shoot button pressed!");
                 }
             });
-            Gdx.input.setInputProcessor(multiplexer);
+            stage.addActor(shootButton);
 
-            // Khởi tạo phi thuyền
-            float shipSize = 64 * Math.min(Gdx.graphics.getWidth() / VIRTUAL_WIDTH, Gdx.graphics.getHeight() / VIRTUAL_HEIGHT);
-            spaceShip = new SpaceShip(VIRTUAL_WIDTH / 2 - shipSize/2, 150, stage);
-            stage.addActor(spaceShip);
+            // Bomb button (dưới phải)
+            TextButton.TextButtonStyle bombStyle = new TextButton.TextButtonStyle();
+            bombStyle.up = skin.getDrawable("bomb_button");
+            bombStyle.font = font;
+            shootBombButton = new TextButton("", bombStyle);
+            shootBombButton.setBounds(screenWidth - margin - buttonSize, margin, buttonSize, buttonSize);
+            shootBombButton.addListener(new ChangeListener() {
+                @Override
+                public void changed(ChangeEvent event, Actor actor) {
+                    shootBomb();
+                }
+            });
+            stage.addActor(shootBombButton);
 
-            // Khởi tạo danh sách UFO, thiên thạch và khiên
-            ufos = new Array<>();
-            meteors = new Array<>();
-            shields = new Array<>();
-            spawnUfo();
-            spawnMeteor();
-            spawnShield();
+            // Missile button (trên trái)
+            TextButton.TextButtonStyle missileStyle = new TextButton.TextButtonStyle();
+            missileStyle.up = skin.getDrawable("missile_button");
+            missileStyle.font = font;
+            shootMissileButton = new TextButton("", missileStyle);
+            shootMissileButton.setBounds(screenWidth - margin - 2 * buttonSize - buttonSpacing, margin + buttonSize + buttonSpacing, buttonSize, buttonSize);
+            shootMissileButton.addListener(new ChangeListener() {
+                @Override
+                public void changed(ChangeEvent event, Actor actor) {
+                    shootMissile();
+                }
+            });
+            stage.addActor(shootMissileButton);
 
-            // Khởi tạo fonts (chỉnh scale lớn hơn)
-            font = new BitmapFont();
-            float screenScale = Math.min(Gdx.graphics.getWidth() / VIRTUAL_WIDTH, Gdx.graphics.getHeight() / VIRTUAL_HEIGHT);
-            font.getData().setScale(2.0f * screenScale);  // Tăng từ 1.8f lên 2.0f
-            titleFont = new BitmapFont();
-            titleFont.getData().setScale(4.5f * screenScale);  // Tăng từ 4.0f lên 4.5f
-            smallFont = new BitmapFont();
-            smallFont.getData().setScale(1.8f * screenScale);  // Tăng từ 1.2f lên 1.4f
-            fontBatch = new SpriteBatch();
+            // Trap button (trên phải)
+            TextButton.TextButtonStyle trapStyle = new TextButton.TextButtonStyle();
+            trapStyle.up = skin.getDrawable("trap_button");
+            trapStyle.font = font;
+            shootTrapButton = new TextButton("", trapStyle);
+            shootTrapButton.setBounds(screenWidth - margin - buttonSize, margin + buttonSize + buttonSpacing, buttonSize, buttonSize);
+            shootTrapButton.addListener(new ChangeListener() {
+                @Override
+                public void changed(ChangeEvent event, Actor actor) {
+                    shootTrap();
+                }
+            });
+            stage.addActor(shootTrapButton);
 
-            // Khởi tạo hình nền
+            createAudioButtons();
+            uiLoaded = true;
+            Gdx.app.log("Main", "UI loaded successfully!");
+        } catch (Exception e) {
+            Gdx.app.error("Main", "Error creating UI controls: " + e.getMessage());
+            uiLoaded = false;
+        }
+    }
+
+    private void shootBomb() {
+        if (TimeUtils.nanoTime() - lastBombTime > BOMB_COOLDOWN) {
+            float x = spaceShip.getX() + spaceShip.getWidth() / 2 - 16;
+            float y = spaceShip.getY() + spaceShip.getHeight();
+            Bomb bomb = new Bomb(x, y, stage);
+            bombs.add(bomb);
+            stage.addActor(bomb);
+            lastBombTime = TimeUtils.nanoTime();
+        }
+    }
+
+    private void shootMissile() {
+        if (TimeUtils.nanoTime() - lastMissileTime > MISSILE_COOLDOWN) {
+            float x = spaceShip.getX() + spaceShip.getWidth() / 2 - 16;
+            float y = spaceShip.getY() + spaceShip.getHeight();
+            // Tìm UFO gần nhất làm mục tiêu (có thể trả về null)
+            UFO target = findNearestUFO(x, y);
+            Missile missile = new Missile(x, y, stage, target); // dùng constructor 4 param
+            missiles.add(missile);
+            stage.addActor(missile);
+            lastMissileTime = TimeUtils.nanoTime();
+        }
+    }
+
+    private void shootTrap() {
+        if (TimeUtils.nanoTime() - lastTrapTime > TRAP_COOLDOWN) {
+            float x = spaceShip.getX() + spaceShip.getWidth() / 2 - 32;  // Giả sử trap size 64x64
+            float y = spaceShip.getY() + spaceShip.getHeight() / 2 - 32;
+            Trap trap = new Trap(x, y, stage);
+            traps.add(trap);
+            stage.addActor(trap);
+            lastTrapTime = TimeUtils.nanoTime();
+        }
+    }
+
+    private UFO findNearestUFO(float x, float y) {
+        UFO nearest = null;
+        float minDist = Float.MAX_VALUE;
+        Vector2 missilePos = new Vector2(x, y);
+        for (UFO ufo : ufos) {
+            Vector2 ufoPos = new Vector2(ufo.getX() + ufo.getWidth() / 2, ufo.getY() + ufo.getHeight() / 2);
+            float dist = missilePos.dst(ufoPos);
+            if (dist < minDist) {
+                minDist = dist;
+                nearest = ufo;
+            }
+        }
+        return nearest;
+    }
+
+    private void createAudioButtons() {
+        try {
+            Texture soundOnTexture, soundOffTexture, musicOnTexture, musicOffTexture;
             try {
-                backgroundTexture = new Texture(Gdx.files.internal("hinh-nen-vu-tru.jpg"));
-                backgroundSprite1 = new Sprite(backgroundTexture);
-                backgroundSprite2 = new Sprite(backgroundTexture);
-                backgroundSprite1.setSize(VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
-                backgroundSprite2.setSize(VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
-                backgroundY1 = 0;
-                backgroundY2 = VIRTUAL_HEIGHT;
-                backgroundSprite1.setPosition(0, backgroundY1);
-                backgroundSprite2.setPosition(0, backgroundY2);
+                soundOnTexture = new Texture(Gdx.files.internal("sound_on.png"));
             } catch (Exception e) {
-                Gdx.app.error("Main", "Error loading background texture: " + e.getMessage());
+                soundOnTexture = createCircleTexture(40, new Color(0.2f, 0.8f, 0.2f, 0.9f));
+                Gdx.app.log("GameScreen", "Created default sound_on texture");
             }
-
-            // Tạo UI Controls
-            createUIControls();
-
-            // Tạo và phát nhạc nền
-            AudioManager.getInstance().playBackgroundMusic();
-
-            // Khởi tạo ShapeRenderer
-            shapeRenderer = new ShapeRenderer();
-        }
-
-        private void createUIControls() {
-            skin = new Skin();
             try {
-                Texture joystickBg, joystickKnob, shootBtn, bombBtn, missileBtn, trapBtn;
-                try {
-                    joystickBg = new Texture(Gdx.files.internal("joystick_background.png"));
-                } catch (Exception e) {
-                    joystickBg = createCircleTexture(80, new Color(0.3f, 0.3f, 0.3f, 0.8f));
-                    Gdx.app.log("Main", "Created default joystick background");
-                }
-                try {
-                    joystickKnob = new Texture(Gdx.files.internal("joystick_knob.png"));
-                } catch (Exception e) {
-                    joystickKnob = createCircleTexture(35, new Color(0.8f, 0.8f, 0.8f, 0.9f));
-                    Gdx.app.log("Main", "Created default joystick knob");
-                }
-                try {
-                    shootBtn = new Texture(Gdx.files.internal("shoot_button.png"));
-                } catch (Exception e) {
-                    shootBtn = createCircleTexture(60, new Color(1.0f, 0.2f, 0.2f, 0.9f));
-                    Gdx.app.log("Main", "Created default shoot button");
-                }
-                try {
-                    bombBtn = new Texture(Gdx.files.internal("bomb.png"));
-                } catch (Exception e) {
-                    bombBtn = createCircleTexture(60, new Color(0.2f, 1.0f, 0.2f, 0.9f));  // Xanh lá
-                }
-                try {
-                    missileBtn = new Texture(Gdx.files.internal("missile.png"));
-                } catch (Exception e) {
-                    missileBtn = createCircleTexture(60, new Color(0.2f, 0.2f, 1.0f, 0.9f));  // Xanh dương
-                }
-                try {
-                    trapBtn = new Texture(Gdx.files.internal("trap.png"));
-                } catch (Exception e) {
-                    trapBtn = createCircleTexture(60, new Color(1.0f, 0.5f, 0.0f, 0.9f));  // Màu cam cho trap
-                }
-                skin.add("bomb_button", bombBtn);
-                skin.add("missile_button", missileBtn);
-                skin.add("trap_button", trapBtn);  // Mới: Thêm skin cho trap
-                skin.add("joystick_background", joystickBg);
-                skin.add("joystick_knob", joystickKnob);
-                skin.add("shoot_button", shootBtn);
-
-                float screenWidth = viewport.getWorldWidth();
-                float screenHeight = viewport.getWorldHeight();
-                float margin = screenWidth * 0.08f;
-
-                Touchpad.TouchpadStyle touchpadStyle = new Touchpad.TouchpadStyle();
-                touchpadStyle.background = skin.getDrawable("joystick_background");
-                touchpadStyle.knob = skin.getDrawable("joystick_knob");
-                touchpad = new Touchpad(15, touchpadStyle);
-                float joystickSize = Math.min(screenWidth, screenHeight) * 0.18f;
-                touchpad.setBounds(margin, margin, joystickSize, joystickSize);
-                stage.addActor(touchpad);
-
-                float buttonSize = joystickSize * 0.6f;  // Giảm kích thước nút nhỏ hơn (từ 0.85f xuống 0.6f)
-                float buttonSpacing = buttonSize * 0.05f;  // Giảm spacing nhỏ hơn
-
-                // Sắp xếp nút thành hình vuông 2x2 ở góc phải dưới
-                // Dưới trái: shoot, dưới phải: bomb
-                // Trên trái: missile, trên phải: trap
-
-                // Shoot button (dưới trái)
-                TextButton.TextButtonStyle buttonStyle = new TextButton.TextButtonStyle();
-                buttonStyle.up = skin.getDrawable("shoot_button");
-                buttonStyle.font = font;
-                shootButton = new TextButton("", buttonStyle);
-                shootButton.setBounds(screenWidth - margin - 2 * buttonSize - buttonSpacing, margin, buttonSize, buttonSize);
-                shootButton.addListener(new ChangeListener() {
-                    @Override
-                    public void changed(ChangeEvent event, Actor actor) {
-                        spaceShip.shootLaser();
-                        Gdx.app.log("Main", "Shoot button pressed!");
-                    }
-                });
-                stage.addActor(shootButton);
-
-                // Bomb button (dưới phải)
-                TextButton.TextButtonStyle bombStyle = new TextButton.TextButtonStyle();
-                bombStyle.up = skin.getDrawable("bomb_button");
-                bombStyle.font = font;
-                shootBombButton = new TextButton("", bombStyle);
-                shootBombButton.setBounds(screenWidth - margin - buttonSize, margin, buttonSize, buttonSize);
-                shootBombButton.addListener(new ChangeListener() {
-                    @Override
-                    public void changed(ChangeEvent event, Actor actor) {
-                        shootBomb();
-                    }
-                });
-                stage.addActor(shootBombButton);
-
-                // Missile button (trên trái)
-                TextButton.TextButtonStyle missileStyle = new TextButton.TextButtonStyle();
-                missileStyle.up = skin.getDrawable("missile_button");
-                missileStyle.font = font;
-                shootMissileButton = new TextButton("", missileStyle);
-                shootMissileButton.setBounds(screenWidth - margin - 2 * buttonSize - buttonSpacing, margin + buttonSize + buttonSpacing, buttonSize, buttonSize);
-                shootMissileButton.addListener(new ChangeListener() {
-                    @Override
-                    public void changed(ChangeEvent event, Actor actor) {
-                        shootMissile();
-                    }
-                });
-                stage.addActor(shootMissileButton);
-
-                // Trap button (trên phải)
-                TextButton.TextButtonStyle trapStyle = new TextButton.TextButtonStyle();
-                trapStyle.up = skin.getDrawable("trap_button");
-                trapStyle.font = font;
-                shootTrapButton = new TextButton("", trapStyle);
-                shootTrapButton.setBounds(screenWidth - margin - buttonSize, margin + buttonSize + buttonSpacing, buttonSize, buttonSize);
-                shootTrapButton.addListener(new ChangeListener() {
-                    @Override
-                    public void changed(ChangeEvent event, Actor actor) {
-                        shootTrap();
-                    }
-                });
-                stage.addActor(shootTrapButton);
-
-                createAudioButtons();
-                uiLoaded = true;
-                Gdx.app.log("Main", "UI loaded successfully!");
+                soundOffTexture = new Texture(Gdx.files.internal("sound_off.png"));
             } catch (Exception e) {
-                Gdx.app.error("Main", "Error creating UI controls: " + e.getMessage());
-                uiLoaded = false;
+                soundOffTexture = createCircleTexture(40, new Color(0.8f, 0.2f, 0.2f, 0.9f));
+                Gdx.app.log("GameScreen", "Created default sound_off texture");
             }
-        }
-
-        private void shootBomb() {
-            if (TimeUtils.nanoTime() - lastBombTime > BOMB_COOLDOWN) {
-                float x = spaceShip.getX() + spaceShip.getWidth() / 2 - 16;
-                float y = spaceShip.getY() + spaceShip.getHeight();
-                Bomb bomb = new Bomb(x, y, stage);
-                bombs.add(bomb);
-                stage.addActor(bomb);
-                lastBombTime = TimeUtils.nanoTime();
-            }
-        }
-
-        private void shootMissile() {
-            if (TimeUtils.nanoTime() - lastMissileTime > MISSILE_COOLDOWN) {
-                float x = spaceShip.getX() + spaceShip.getWidth() / 2 - 16;
-                float y = spaceShip.getY() + spaceShip.getHeight();
-                // Tìm UFO gần nhất làm mục tiêu (có thể trả về null)
-                UFO target = findNearestUFO(x, y);
-                Missile missile = new Missile(x, y, stage, target); // dùng constructor 4 param
-                missiles.add(missile);
-                stage.addActor(missile);
-                lastMissileTime = TimeUtils.nanoTime();
-            }
-        }
-
-        private void shootTrap() {
-            if (TimeUtils.nanoTime() - lastTrapTime > TRAP_COOLDOWN) {
-                float x = spaceShip.getX() + spaceShip.getWidth() / 2 - 32;  // Giả sử trap size 64x64
-                float y = spaceShip.getY() + spaceShip.getHeight() / 2 - 32;
-                Trap trap = new Trap(x, y, stage);
-                traps.add(trap);
-                stage.addActor(trap);
-                lastTrapTime = TimeUtils.nanoTime();
-            }
-        }
-
-        private UFO findNearestUFO(float x, float y) {
-            UFO nearest = null;
-            float minDist = Float.MAX_VALUE;
-            Vector2 missilePos = new Vector2(x, y);
-            for (UFO ufo : ufos) {
-                Vector2 ufoPos = new Vector2(ufo.getX() + ufo.getWidth() / 2, ufo.getY() + ufo.getHeight() / 2);
-                float dist = missilePos.dst(ufoPos);
-                if (dist < minDist) {
-                    minDist = dist;
-                    nearest = ufo;
-                }
-            }
-            return nearest;
-        }
-
-        private void createAudioButtons() {
             try {
-                Texture soundOnTexture, soundOffTexture, musicOnTexture, musicOffTexture;
-                try {
-                    soundOnTexture = new Texture(Gdx.files.internal("sound_on.png"));
-                } catch (Exception e) {
-                    soundOnTexture = createCircleTexture(40, new Color(0.2f, 0.8f, 0.2f, 0.9f));
-                    Gdx.app.log("GameScreen", "Created default sound_on texture");
-                }
-                try {
-                    soundOffTexture = new Texture(Gdx.files.internal("sound_off.png"));
-                } catch (Exception e) {
-                    soundOffTexture = createCircleTexture(40, new Color(0.8f, 0.2f, 0.2f, 0.9f));
-                    Gdx.app.log("GameScreen", "Created default sound_off texture");
-                }
-                try {
-                    musicOnTexture = new Texture(Gdx.files.internal("music_on.png"));
-                } catch (Exception e) {
-                    musicOnTexture = createCircleTexture(40, new Color(0.2f, 0.2f, 0.8f, 0.9f));
-                    Gdx.app.log("GameScreen", "Created default music_on texture");
-                }
-                try {
-                    musicOffTexture = new Texture(Gdx.files.internal("music_off.png"));
-                } catch (Exception e) {
-                    musicOffTexture = createCircleTexture(40, new Color(0.6f, 0.6f, 0.6f, 0.9f));
-                    Gdx.app.log("GameScreen", "Created default music_off texture");
-                }
-                skin.add("sound_on", soundOnTexture);
-                skin.add("sound_off", soundOffTexture);
-                skin.add("music_on", musicOnTexture);
-                skin.add("music_off", musicOffTexture);
-
-                float screenWidth = viewport.getWorldWidth();
-                float screenHeight = viewport.getWorldHeight();
-                float margin = screenWidth * 0.02f;
-                float buttonSize = 80f;
-                float buttonSpacing = buttonSize * 0.1f;  // Khoảng cách giữa 2 nút
-
-                // Sound button (bên trái)
-                TextButton.TextButtonStyle soundStyle = new TextButton.TextButtonStyle();
-                soundStyle.up = skin.getDrawable(AudioManager.getInstance().isSoundEnabled() ? "sound_on" : "sound_off");
-                soundStyle.font = smallFont;
-                soundButton = new TextButton("S", soundStyle);
-                soundButton.setBounds(screenWidth - margin - 2 * buttonSize - buttonSpacing, screenHeight - margin - buttonSize, buttonSize, buttonSize);
-                soundButton.addListener(new ChangeListener() {
-                    @Override
-                    public void changed(ChangeEvent event, Actor actor) {
-                        toggleSound();
-                    }
-                });
-                stage.addActor(soundButton);
-
-                // Music button (bên phải)
-                TextButton.TextButtonStyle musicStyle = new TextButton.TextButtonStyle();
-                musicStyle.up = skin.getDrawable(AudioManager.getInstance().isMusicEnabled() ? "music_on" : "music_off");
-                musicStyle.font = smallFont;
-                musicButton = new TextButton("M", musicStyle);
-                musicButton.setBounds(screenWidth - margin - buttonSize, screenHeight - margin - buttonSize, buttonSize, buttonSize);
-                musicButton.addListener(new ChangeListener() {
-                    @Override
-                    public void changed(ChangeEvent event, Actor actor) {
-                        toggleMusic();
-                    }
-                });
-                stage.addActor(musicButton);
+                musicOnTexture = new Texture(Gdx.files.internal("music_on.png"));
             } catch (Exception e) {
-                Gdx.app.error("GameScreen", "Error creating audio buttons: " + e.getMessage());
+                musicOnTexture = createCircleTexture(40, new Color(0.2f, 0.2f, 0.8f, 0.9f));
+                Gdx.app.log("GameScreen", "Created default music_on texture");
             }
+            try {
+                musicOffTexture = new Texture(Gdx.files.internal("music_off.png"));
+            } catch (Exception e) {
+                musicOffTexture = createCircleTexture(40, new Color(0.6f, 0.6f, 0.6f, 0.9f));
+                Gdx.app.log("GameScreen", "Created default music_off texture");
+            }
+            skin.add("sound_on", soundOnTexture);
+            skin.add("sound_off", soundOffTexture);
+            skin.add("music_on", musicOnTexture);
+            skin.add("music_off", musicOffTexture);
+
+            float screenWidth = viewport.getWorldWidth();
+            float screenHeight = viewport.getWorldHeight();
+            float margin = screenWidth * 0.02f;
+            float buttonSize = 80f;
+            float buttonSpacing = buttonSize * 0.1f;  // Khoảng cách giữa 2 nút
+
+            // Sound button (bên trái)
+            TextButton.TextButtonStyle soundStyle = new TextButton.TextButtonStyle();
+            soundStyle.up = skin.getDrawable(AudioManager.getInstance().isSoundEnabled() ? "sound_on" : "sound_off");
+            soundStyle.font = smallFont;
+            soundButton = new TextButton("S", soundStyle);
+            soundButton.setBounds(screenWidth - margin - 2 * buttonSize - buttonSpacing, screenHeight - margin - buttonSize, buttonSize, buttonSize);
+            soundButton.addListener(new ChangeListener() {
+                @Override
+                public void changed(ChangeEvent event, Actor actor) {
+                    toggleSound();
+                }
+            });
+            stage.addActor(soundButton);
+
+            // Music button (bên phải)
+            TextButton.TextButtonStyle musicStyle = new TextButton.TextButtonStyle();
+            musicStyle.up = skin.getDrawable(AudioManager.getInstance().isMusicEnabled() ? "music_on" : "music_off");
+            musicStyle.font = smallFont;
+            musicButton = new TextButton("M", musicStyle);
+            musicButton.setBounds(screenWidth - margin - buttonSize, screenHeight - margin - buttonSize, buttonSize, buttonSize);
+            musicButton.addListener(new ChangeListener() {
+                @Override
+                public void changed(ChangeEvent event, Actor actor) {
+                    toggleMusic();
+                }
+            });
+            stage.addActor(musicButton);
+        } catch (Exception e) {
+            Gdx.app.error("GameScreen", "Error creating audio buttons: " + e.getMessage());
         }
+    }
 
     private void toggleSound() {
         AudioManager audioManager = AudioManager.getInstance();
@@ -554,6 +557,17 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
         }
 
         checkCollisions();
+        checkWinCondition();
+    }
+
+    private void checkWinCondition() {
+        if (score >= 100 && !gameOver) {
+            long endTime = TimeUtils.millis();
+            long gameDuration = endTime - startTime;
+            AudioManager.getInstance().stopBackgroundMusic();
+            dispose();
+            game.setScreen(new WinScreen(game, score, gameDuration));
+        }
     }
 
     private void updateButtonCountdowns() {
@@ -918,156 +932,10 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
         }
     }
 
-
-        private void showGameOverScreen() {
-            AudioManager.getInstance().playGameOverMusic();
-            AudioManager.getInstance().playGameOverSound();
-            gameOverStage = new Stage(new FitViewport(VIRTUAL_WIDTH, VIRTUAL_HEIGHT, new OrthographicCamera()));
-            gameOverTable = new Table();
-            gameOverTable.setFillParent(true);
-            com.badlogic.gdx.graphics.Pixmap bgPixmap = new com.badlogic.gdx.graphics.Pixmap(1, 1, com.badlogic.gdx.graphics.Pixmap.Format.RGBA8888);
-            bgPixmap.setColor(0, 0, 0, 0.7f);
-            bgPixmap.fill();
-            Texture bgTexture = new Texture(bgPixmap);
-            bgPixmap.dispose();
-            skin.add("game-over-bg", bgTexture);
-            gameOverTable.setBackground(skin.getDrawable("game-over-bg"));
-            com.badlogic.gdx.scenes.scene2d.ui.Label gameOverLabel = new com.badlogic.gdx.scenes.scene2d.ui.Label("GAME OVER",
-                new com.badlogic.gdx.scenes.scene2d.ui.Label.LabelStyle(titleFont, Color.RED));
-            gameOverTable.add(gameOverLabel).padBottom(40).row();
-            com.badlogic.gdx.scenes.scene2d.ui.Label scoreLabel = new com.badlogic.gdx.scenes.scene2d.ui.Label("Final Score: " + score,
-                new com.badlogic.gdx.scenes.scene2d.ui.Label.LabelStyle(font, Color.WHITE));
-            gameOverTable.add(scoreLabel).padBottom(30).row();
-            com.badlogic.gdx.scenes.scene2d.ui.Label creditsLabel = new com.badlogic.gdx.scenes.scene2d.ui.Label("Made by KMA",
-                new com.badlogic.gdx.scenes.scene2d.ui.Label.LabelStyle(font, Color.GRAY));
-            gameOverTable.add(creditsLabel).padBottom(50).row();
-
-            // Load hoặc tạo textures cho các nút (hình vuông)
-            Texture playAgainTexture, homeTexture, shareTexture;
-            int buttonSize = 100; // Kích thước nút vuông
-            try {
-                playAgainTexture = new Texture(Gdx.files.internal("play_again_button.png"));
-            } catch (Exception e) {
-                playAgainTexture = createCircleTexture(buttonSize/2, new Color(0.2f, 0.8f, 0.2f, 0.9f)); // Xanh lá
-            }
-            try {
-                homeTexture = new Texture(Gdx.files.internal("home_button.png"));
-            } catch (Exception e) {
-                homeTexture = createCircleTexture(buttonSize/2, new Color(0.2f, 0.5f, 1.0f, 0.9f)); // Xanh dương
-            }
-            try {
-                shareTexture = new Texture(Gdx.files.internal("share_button.png"));
-            } catch (Exception e) {
-                shareTexture = createCircleTexture(buttonSize/2, new Color(1.0f, 0.6f, 0.0f, 0.9f)); // Cam
-            }
-
-            skin.add("play_again_btn", playAgainTexture);
-            skin.add("home_btn", homeTexture);
-            skin.add("share_btn", shareTexture);
-
-            // Play Again button
-            TextButton.TextButtonStyle playAgainStyle = new TextButton.TextButtonStyle();
-            playAgainStyle.up = skin.getDrawable("play_again_btn");
-            playAgainStyle.font = smallFont;
-            playAgainStyle.fontColor = Color.WHITE;
-            playAgainButton = new TextButton("", playAgainStyle);
-            playAgainButton.addListener(new ChangeListener() {
-                @Override
-                public void changed(ChangeEvent event, Actor actor) {
-                    resetGame();
-                }
-            });
-            gameOverTable.add(playAgainButton).size(buttonSize, buttonSize).padTop(30).row();
-
-            // Label cho Play Again
-            com.badlogic.gdx.scenes.scene2d.ui.Label playAgainLabel = new com.badlogic.gdx.scenes.scene2d.ui.Label("Play Again",
-                new com.badlogic.gdx.scenes.scene2d.ui.Label.LabelStyle(smallFont, Color.WHITE));
-            gameOverTable.add(playAgainLabel).padTop(10).row();
-
-            // Home button
-            TextButton.TextButtonStyle homeStyle = new TextButton.TextButtonStyle();
-            homeStyle.up = skin.getDrawable("home_btn");
-            homeStyle.font = smallFont;
-            homeStyle.fontColor = Color.WHITE;
-            TextButton homeButton = new TextButton("", homeStyle);
-            homeButton.addListener(new ChangeListener() {
-                @Override
-                public void changed(ChangeEvent event, Actor actor) {
-                    dispose();
-                    game.setScreen(new MainMenuScreen(game));
-                }
-            });
-            gameOverTable.add(homeButton).size(buttonSize, buttonSize).padTop(20).row();
-
-            // Label cho Home
-            com.badlogic.gdx.scenes.scene2d.ui.Label homeLabel = new com.badlogic.gdx.scenes.scene2d.ui.Label("Home",
-                new com.badlogic.gdx.scenes.scene2d.ui.Label.LabelStyle(smallFont, Color.WHITE));
-            gameOverTable.add(homeLabel).padTop(10).row();
-
-            // Share Score button
-            TextButton.TextButtonStyle shareStyle = new TextButton.TextButtonStyle();
-            shareStyle.up = skin.getDrawable("share_btn");
-            shareStyle.font = smallFont;
-            shareStyle.fontColor = Color.WHITE;
-            TextButton shareButton = new TextButton("", shareStyle);
-            shareButton.addListener(new ChangeListener() {
-                @Override
-                public void changed(ChangeEvent event, Actor actor) {
-                    shareScore();
-                }
-            });
-            gameOverTable.add(shareButton).size(buttonSize, buttonSize).padTop(20).row();
-
-            // Label cho Share
-            com.badlogic.gdx.scenes.scene2d.ui.Label shareLabel = new com.badlogic.gdx.scenes.scene2d.ui.Label("Share Score",
-                new com.badlogic.gdx.scenes.scene2d.ui.Label.LabelStyle(smallFont, Color.WHITE));
-            gameOverTable.add(shareLabel).padTop(10);
-
-            gameOverStage.addActor(gameOverTable);
-            com.badlogic.gdx.InputMultiplexer gameOverMultiplexer = new com.badlogic.gdx.InputMultiplexer();
-            gameOverMultiplexer.addProcessor(gameOverStage);
-            gameOverMultiplexer.addProcessor(new com.badlogic.gdx.InputAdapter() {
-                @Override
-                public boolean keyDown(int keycode) {
-                    if (keycode == Input.Keys.ENTER || keycode == Input.Keys.SPACE) {
-                        resetGame();
-                        return true;
-                    }
-                    if (keycode == Input.Keys.ESCAPE) {
-                        dispose();
-                        game.setScreen(new MainMenuScreen(game));
-                        return true;
-                    }
-                    return false;
-                }
-            });
-            Gdx.input.setInputProcessor(gameOverMultiplexer);
-        }
-
-        private Texture createRectangleTexture(int width, int height, Color color) {
-            com.badlogic.gdx.graphics.Pixmap pixmap = new com.badlogic.gdx.graphics.Pixmap(width, height, com.badlogic.gdx.graphics.Pixmap.Format.RGBA8888);
-            // Viền tối
-            pixmap.setColor(color.r * 0.5f, color.g * 0.5f, color.b * 0.5f, color.a);
-            pixmap.fill();
-            // Nền chính
-            pixmap.setColor(color);
-            pixmap.fillRectangle(4, 4, width - 8, height - 8);
-            Texture texture = new Texture(pixmap);
-            pixmap.dispose();
-            return texture;
-        }
-
-        private void shareScore() {
-            String shareText = "I scored " + score + " points in Space Shooter! Can you beat my score?";
-            Gdx.app.log("GameScreen", "Share score: " + shareText);
-            // Trên desktop: copy vào clipboard
-            if (Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Desktop) {
-                Gdx.app.getClipboard().setContents(shareText);
-                Gdx.app.log("GameScreen", "Score copied to clipboard!");
-            }
-            // Trên Android/iOS: có thể dùng Intent hoặc Native sharing
-            // Tạm thời log ra console
-        }
+    private void showGameOverScreen() {
+        dispose();
+        game.setScreen(new GameOverScreen(game, score));
+    }
 
     private void resetGame() {
         gameOver = false;
